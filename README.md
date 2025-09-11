@@ -36,7 +36,7 @@ HAR Reverse Engineering Tool/
 ## 🛠️ Tech Stack
 
 ### Frontend
-- **Framework**: Next.js 14 with TypeScript
+- **Framework**: Next.js 15 with TypeScript
 - **Styling**: Tailwind CSS
 - **UI Components**: shadcn/ui + Radix UI
 - **State Management**: React Hooks
@@ -54,14 +54,14 @@ HAR Reverse Engineering Tool/
 ### Prerequisites
 
 - Node.js 18+ and npm
-- Python 3.11+
+- Python 3.13+
 - OpenAI API key
 
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repo-url>
-cd har-reverse-engineering-tool
+git clone https://github.com/Esk3tit/reverse-engineer-api.git
+cd reverse-engineer-api
 ```
 
 ### 2. Backend Setup
@@ -303,7 +303,7 @@ If you have any questions or run into issues:
 - Built with [Next.js](https://nextjs.org/) and [FastAPI](https://fastapi.tiangolo.com/)
 - UI components from [shadcn/ui](https://ui.shadcn.com/)
 - Icons from [Lucide React](https://lucide.dev/)
-- AI powered by [OpenAI GPT-4](https://openai.com/)
+- AI powered by [OpenAI Models](https://openai.com/)
 
 ---
 
