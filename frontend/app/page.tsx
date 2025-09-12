@@ -184,7 +184,7 @@ export default function ReverseEngineeringTool() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="mx-auto max-w-4xl space-y-8">
+        <div className="mx-auto max-w-7xl space-y-8">
           {/* Process Steps */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className={`flex items-center gap-3 p-4 rounded-lg bg-card border ${

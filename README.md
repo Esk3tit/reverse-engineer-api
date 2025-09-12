@@ -7,7 +7,7 @@ A powerful web application that extracts curl commands from HAR (HTTP Archive) f
 ## 🚀 Features
 
 - **Smart HAR Processing**: Automatically filters and analyzes HTTP requests
-- **AI-Powered Matching**: Uses GPT-4 to intelligently match API descriptions to requests
+- **AI-Powered Matching**: Uses GPT-5 Mini to intelligently match API descriptions to requests
 - **Clean Curl Generation**: Produces executable curl commands with proper formatting
 - **Security Conscious**: Automatically masks sensitive authentication data
 - **Real-time Progress**: Live progress updates during processing
@@ -45,7 +45,7 @@ HAR Reverse Engineering Tool/
 ### Backend
 - **Framework**: FastAPI
 - **Language**: Python 3.13+
-- **AI Integration**: OpenAI
+- **AI Integration**: OpenAI GPT-5 Mini
 - **File Processing**: JSON parsing with smart filtering
 - **Logging**: Structured logging with structlog
 
@@ -165,7 +165,7 @@ Edit `backend/.env`:
 OPENAI_API_KEY=your_openai_api_key
 
 # Optional
-OPENAI_MODEL=gpt-4o-2024-08-06
+OPENAI_MODEL=gpt-5-mini-2025-08-07
 MAX_FILE_SIZE=52428800  # 50MB
 MAX_REQUESTS_TO_ANALYZE=50
 LOG_LEVEL=INFO
@@ -221,7 +221,7 @@ Analyze a HAR file and generate a curl command.
    - HTTP status codes (2xx responses)
    - URL patterns (contains 'api', 'v1', etc.)
    - Request methods (POST/PUT/PATCH get priority)
-4. **AI Analysis**: GPT-4 analyzes the filtered requests against the user's description
+4. **AI Analysis**: GPT-5 Mini analyzes the filtered requests against the user's description
 5. **Curl Generation**: Converts the selected request into a properly formatted curl command
 6. **Security Processing**: Masks sensitive authentication data in the output
 
@@ -303,7 +303,7 @@ If you have any questions or run into issues:
 - Built with [Next.js](https://nextjs.org/) and [FastAPI](https://fastapi.tiangolo.com/)
 - UI components from [shadcn/ui](https://ui.shadcn.com/)
 - Icons from [Lucide React](https://lucide.dev/)
-- AI powered by [OpenAI Models](https://openai.com/)
+- AI powered by [OpenAI GPT-5 Mini](https://openai.com/)
 
 ---
 

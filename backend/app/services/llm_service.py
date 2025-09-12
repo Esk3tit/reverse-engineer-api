@@ -55,7 +55,7 @@ class LLMService:
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=self.settings.OPENAI_TEMPERATURE,
-                max_tokens=self.settings.OPENAI_MAX_TOKENS,
+                max_completion_tokens=self.settings.OPENAI_MAX_TOKENS,
                 response_format={
                     "type": "json_schema",
                     "json_schema": {
