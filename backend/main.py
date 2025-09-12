@@ -10,12 +10,17 @@ import uvicorn
 from typing import Dict, Any
 
 from app.config import get_settings
-from app.models import CurlResponse, ErrorResponse
+from app.models import CurlResponse, ErrorResponse, ExecuteCurlRequest, ExecuteCurlResponse
 from app.services.har_parser import HARParser
 from app.services.llm_service import LLMService
 from app.services.curl_generator import CurlGenerator
 from app.exceptions import HARParsingError, LLMServiceError
 from app.utils.logging import setup_logging
+
+import subprocess
+import json
+import re
+import time
 
 # Setup logging
 logger = structlog.get_logger()
@@ -158,6 +163,170 @@ async def reverse_engineer_api(
     except Exception as e:
         logger.error("Unexpected error", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail="Internal server error")
+
+@app.post("/api/execute-curl", response_model=ExecuteCurlResponse)
+async def execute_curl_command(request: ExecuteCurlRequest):
+    """
+    Execute a curl command and return the response
+    
+    Args:
+        request: Contains the curl command to execute
+        
+    Returns:
+        ExecuteCurlResponse with the API response details
+    """
+    try:
+        logger.info("Executing curl command")
+        
+        # Security: Parse and validate the curl command
+        if not request.curl_command.strip().startswith('curl'):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid command: must be a curl command"
+            )
+        
+        # Add timeout and response headers to curl command
+        enhanced_command = enhance_curl_command(request.curl_command)
+        
+        start_time = time.time()
+        
+        # Execute curl command with security limits
+        result = subprocess.run(
+            enhanced_command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30,  # 30 second timeout
+            env={'PATH': '/usr/bin:/bin'}  # Restricted PATH for security
+        )
+        
+        execution_time = int((time.time() - start_time) * 1000)  # Convert to milliseconds
+        
+        if result.returncode == 0:
+            # Parse successful response
+            response_data = parse_curl_response(result.stdout)
+            
+            return ExecuteCurlResponse(
+                success=True,
+                status_code=response_data.get('status_code', 200),
+                headers=response_data.get('headers', {}),
+                body=response_data.get('body', ''),
+                execution_time=execution_time
+            )
+        else:
+            # Handle curl errors
+            error_message = result.stderr.strip() if result.stderr else 'Unknown curl error'
+            
+            return ExecuteCurlResponse(
+                success=False,
+                status_code=0,
+                headers={},
+                body='',
+                execution_time=execution_time,
+                error=error_message
+            )
+            
+    except subprocess.TimeoutExpired:
+        logger.error("Curl command timed out")
+        return ExecuteCurlResponse(
+            success=False,
+            status_code=0,
+            headers={},
+            body='',
+            execution_time=30000,
+            error="Request timed out after 30 seconds"
+        )
+    
+    except Exception as e:
+        logger.error(f"Failed to execute curl command: {str(e)}")
+        return ExecuteCurlResponse(
+            success=False,
+            status_code=0,
+            headers={},
+            body='',
+            execution_time=0,
+            error=f"Execution failed: {str(e)}"
+        )
+
+def enhance_curl_command(curl_command: str) -> str:
+    """
+    Enhance curl command with additional flags for better response parsing
+    """
+    # Add flags to get response headers and status code
+    enhanced = curl_command.strip()
+    
+    # Add response headers flag if not present
+    if '-i' not in enhanced and '--include' not in enhanced:
+        enhanced = enhanced.replace('curl ', 'curl -i ', 1)
+    
+    # Add status code flag if not present  
+    if '-w' not in enhanced and '--write-out' not in enhanced:
+        enhanced += ' -w "\\n---CURL_STATUS_CODE:%{http_code}---\\n"'
+    
+    # Add timeout if not present
+    if '--max-time' not in enhanced and '-m' not in enhanced:
+        enhanced += ' --max-time 30'
+    
+    # Add connection timeout
+    if '--connect-timeout' not in enhanced:
+        enhanced += ' --connect-timeout 10'
+    
+    # Follow redirects by default
+    if '-L' not in enhanced and '--location' not in enhanced:
+        enhanced += ' -L'
+    
+    # Disable certificate verification for testing (optional - remove in production)
+    if '-k' not in enhanced and '--insecure' not in enhanced:
+        enhanced += ' -k'
+    
+    return enhanced
+
+def parse_curl_response(curl_output: str) -> Dict[str, Any]:
+    """
+    Parse curl response to extract status code, headers, and body
+    """
+    try:
+        # Extract status code
+        status_match = re.search(r'---CURL_STATUS_CODE:(\d+)---', curl_output)
+        status_code = int(status_match.group(1)) if status_match else 200
+        
+        # Remove status code marker
+        clean_output = re.sub(r'---CURL_STATUS_CODE:\d+---\s*', '', curl_output)
+        
+        # Split headers and body
+        parts = clean_output.split('\r\n\r\n', 1)
+        if len(parts) < 2:
+            parts = clean_output.split('\n\n', 1)
+        
+        if len(parts) >= 2:
+            headers_section = parts[0]
+            body = parts[1].strip()
+        else:
+            headers_section = ''
+            body = clean_output.strip()
+        
+        # Parse headers
+        headers = {}
+        if headers_section:
+            header_lines = headers_section.split('\n')[1:]  # Skip status line
+            for line in header_lines:
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    headers[key.strip().lower()] = value.strip()
+        
+        return {
+            'status_code': status_code,
+            'headers': headers,
+            'body': body
+        }
+        
+    except Exception as e:
+        logger.warning(f"Failed to parse curl response: {str(e)}")
+        return {
+            'status_code': 200,
+            'headers': {},
+            'body': curl_output
+        }
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
