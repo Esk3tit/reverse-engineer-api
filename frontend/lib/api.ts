@@ -1,5 +1,5 @@
 /**
- * API client with real upload progress and better error handling
+ * API client with real upload progress, better error handling, and curl execution
  */
 
 export interface CurlResponse {
@@ -21,10 +21,25 @@ export interface UploadProgress {
   stage: 'uploading' | 'processing' | 'complete';
 }
 
+export interface APIExecutionResult {
+  success: boolean;
+  status_code: number;
+  headers: Record<string, string>;
+  body: string;
+  execution_time: number;
+  error?: string;
+}
+
+export interface ErrorResponse {
+  error: string;
+  status_code: number;
+  details?: Record<string, any>;
+}
+
 export class APIError extends Error {
   constructor(
     public status: number,
-    public errorResponse: { error: string; status_code: number },
+    public errorResponse: ErrorResponse,
     message?: string
   ) {
     super(message || errorResponse.error);
@@ -153,6 +168,57 @@ class APIClient {
       // Send request
       xhr.send(formData);
     });
+  }
+
+  async executeAPI(curlCommand: string): Promise<APIExecutionResult> {
+    const startTime = Date.now();
+    
+    try {
+      const response = await fetch(`${this.baseURL}/api/execute-curl`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          curl_command: curlCommand
+        }),
+      });
+
+      const executionTime = Date.now() - startTime;
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        return {
+          success: false,
+          status_code: response.status,
+          headers: {},
+          body: '',
+          execution_time: executionTime,
+          error: errorData.error || `HTTP ${response.status}: ${response.statusText}`
+        };
+      }
+
+      const result = await response.json();
+      return {
+        success: true,
+        status_code: result.status_code,
+        headers: result.headers || {},
+        body: result.body || '',
+        execution_time: executionTime,
+      };
+
+    } catch (error) {
+      const executionTime = Date.now() - startTime;
+      
+      return {
+        success: false,
+        status_code: 0,
+        headers: {},
+        body: '',
+        execution_time: executionTime,
+        error: error instanceof Error ? error.message : 'Network error occurred'
+      };
+    }
   }
 
   abort() {
