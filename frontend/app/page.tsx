@@ -15,16 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { toast } from "sonner"
 
-import { apiClient, type CurlResponse, APIError } from "@/lib/api"
-
-interface APIExecutionResult {
-  success: boolean
-  status_code: number
-  headers: Record<string, string>
-  body: string
-  execution_time: number
-  error?: string
-}
+import { apiClient, type CurlResponse, APIError, type APIExecutionResult } from "@/lib/api"
 
 export default function ReverseEngineeringTool() {
   const [file, setFile] = useState<File | null>(null)
