@@ -226,6 +226,17 @@ class APIClient {
       }
 
       const result = await response.json();
+      if (result && result.success === false) {
+        return {
+          success: false,
+          status_code: result.status_code || 0,
+          headers: result.headers || {},
+          body: result.body || '',
+          execution_time: executionTime,
+          error: result.error || 'Execution failed',
+        };
+      }
+
       return {
         success: true,
         status_code: result.status_code,

@@ -18,6 +18,7 @@ from app.exceptions import HARParsingError, LLMServiceError
 from app.utils.logging import setup_logging
 
 import subprocess
+import os
 import json
 import re
 import time
@@ -196,13 +197,18 @@ async def execute_curl_command(request: ExecuteCurlRequest):
         start_time = time.time()
         
         # Execute curl command with security limits
+        # Use a safe PATH that includes common locations and inherit current env
+        safe_env = os.environ.copy()
+        default_path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        safe_env["PATH"] = safe_env.get("PATH", default_path) or default_path
+
         result = subprocess.run(
             enhanced_command,
             shell=True,
             capture_output=True,
             text=True,
             timeout=30,  # 30 second timeout
-            env={'PATH': '/usr/bin:/bin'}  # Restricted PATH for security
+            env=safe_env
         )
         
         execution_time = int((time.time() - start_time) * 1000)  # Convert to milliseconds
@@ -284,6 +290,14 @@ def enhance_curl_command(curl_command: str) -> str:
     if '-k' not in enhanced and '--insecure' not in enhanced:
         enhanced += ' -k'
     
+    # If running inside Docker, rewrite localhost/127.0.0.1 to host.docker.internal
+    # so that curl can reach services running on the host machine
+    try:
+        if os.path.exists('/.dockerenv'):
+            enhanced = re.sub(r'(https?://)(localhost|127\\.0\\.0\\.1)(:\\d+)?', r'\\1host.docker.internal\\3', enhanced)
+    except Exception:
+        pass
+
     return enhanced
 
 def parse_curl_response(curl_output: str) -> Dict[str, Any]:
