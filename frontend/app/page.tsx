@@ -323,7 +323,7 @@ export default function ReverseEngineeringTool() {
           {/* Progress Bar */}
           {isProcessing && (
             <Card>
-              <CardContent className="pt-6">
+              <CardContent className="pt-1">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Processing HAR file...</span>
