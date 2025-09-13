@@ -2,7 +2,7 @@
 
 A powerful web application that extracts curl commands from HAR (HTTP Archive) files using AI-powered analysis. Simply upload a HAR file, describe the API you're looking for, and get a ready-to-use curl command.
 
-![HAR Reverse Engineering Tool](https://via.placeholder.com/800x400/6366f1/ffffff?text=HAR+Reverse+Engineering+Tool)
+![HAR Reverse Engineering Tool](https://imgur.com/a/CGYjxBT)
 
 ## 🚀 Features
 
