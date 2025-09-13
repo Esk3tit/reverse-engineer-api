@@ -12,18 +12,17 @@ class Settings(BaseSettings):
     # App settings
     APP_NAME: str = "HAR Reverse Engineering API"
     DEBUG: bool = False
-    VERSION: str = "1.0.0"
+    VERSION: str = "1.2.0"
     
     # CORS settings
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",  # Next.js dev server
-        "http://127.0.0.1:3000",
-        "https://your-frontend-domain.com"  # Add your production domain
+        "http://127.0.0.1:3000"
     ]
     
     # LLM settings
     OPENAI_API_KEY: str
-    OPENAI_MODEL: str = "gpt-4o-2024-08-06"
+    OPENAI_MODEL: str = "gpt-5-mini-2025-08-07"
     OPENAI_MAX_TOKENS: int = 4096
     OPENAI_TEMPERATURE: float = 0.1
     
