@@ -124,15 +124,10 @@ export default function ReverseEngineeringTool() {
       toast.success("Curl command generated successfully!", { id: 'processing' })
       
     } catch (error) {
-      console.error('API Error:', error)
-      
-      if (error instanceof APIError) {
-        setError(error.message)
-        toast.error(error.message, { id: 'processing' })
-      } else {
-        setError("An unexpected error occurred. Please try again.")
-        toast.error("An unexpected error occurred", { id: 'processing' })
-      }
+      // Avoid noisy console errors that trigger the Next.js overlay; handle gracefully in UI
+      const message = error instanceof APIError ? error.message : "Something went wrong while processing your file.";
+      setError(message)
+      toast.error(message, { id: 'processing' })
     } finally {
       setIsProcessing(false)
       setProgress(0)

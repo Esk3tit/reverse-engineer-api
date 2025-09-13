@@ -47,6 +47,29 @@ export class APIError extends Error {
   }
 }
 
+// Map backend error shapes to user-friendly messages that don't crash the UI
+function mapFriendlyError(status: number, err: ErrorResponse): { message: string; details?: Record<string, any> } {
+  const raw = (err?.error || '').toLowerCase();
+  if (status === 404 || raw.includes('no matching api request')) {
+    return {
+      message: 'No matching API request found for your description. Try refining your description.',
+    };
+  }
+  if (status === 400) {
+    if (raw.includes('file must be a .har')) {
+      return { message: 'Please upload a valid .har file.' };
+    }
+    if (raw.includes('no valid api requests')) {
+      return { message: 'No API requests were found in the HAR file.' };
+    }
+    return { message: 'Your request could not be processed. Please check the inputs and try again.' };
+  }
+  if (status >= 500) {
+    return { message: 'The server had an issue processing this request. Please try again later.' };
+  }
+  return { message: err?.error || `HTTP ${status}` };
+}
+
 class APIClient {
   private baseURL: string;
   private abortController: AbortController | null = null;
@@ -121,12 +144,16 @@ class APIClient {
           }
         } else {
           try {
-            const errorResponse = JSON.parse(xhr.responseText);
-            reject(new APIError(xhr.status, errorResponse));
+            const errorResponse = JSON.parse(xhr.responseText) as ErrorResponse;
+            // Map common backend errors to friendly messages without throwing generic overlay-worthy errors
+            const friendly = mapFriendlyError(xhr.status, errorResponse);
+            reject(new APIError(xhr.status, { ...errorResponse, error: friendly.message }));
           } catch (error) {
+            const friendly = mapFriendlyError(xhr.status, { error: xhr.statusText || 'Unknown error', status_code: xhr.status, details: undefined });
             reject(new APIError(xhr.status, {
-              error: `HTTP ${xhr.status}: ${xhr.statusText}`,
-              status_code: xhr.status
+              error: friendly.message,
+              status_code: xhr.status,
+              details: friendly.details
             }));
           }
         }

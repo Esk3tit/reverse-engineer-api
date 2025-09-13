@@ -159,6 +159,11 @@ async def reverse_engineer_api(
     except LLMServiceError as e:
         logger.error("LLM service failed", error=str(e))
         raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+    except HTTPException as e:
+        # Preserve intended HTTP status (e.g., 404 when no match is found)
+        logger.error("Request failed", status_code=e.status_code, detail=str(e.detail))
+        raise e
     
     except Exception as e:
         logger.error("Unexpected error", error=str(e), exc_info=True)
