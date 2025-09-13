@@ -1,14 +1,35 @@
-# Use Node.js 18 Alpine image
-FROM node:18-alpine AS base
+# Use Node.js 20 Alpine image (supports Next 15)
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
-RUN apk add --no-cache libc6-compat
+RUN apk add --no-cache libc6-compat curl bash git
 WORKDIR /app
 
-# Copy package files
-COPY package.json package-lock.json* ./
-RUN npm ci
+# Copy package files and all possible lockfiles
+COPY package.json \
+     package-lock.json* npm-shrinkwrap.json* \
+     pnpm-lock.yaml yarn.lock \
+     bun.lock bun.lockb ./
+
+# Install dependencies using the detected package manager
+RUN set -eux; \
+  if [ -f bun.lock ] || [ -f bun.lockb ]; then \
+    curl -fsSL https://bun.sh/install | bash -s -- --yes >/dev/null; \
+    export BUN_INSTALL=/root/.bun; \
+    export PATH="$BUN_INSTALL/bin:$PATH"; \
+    bun install --ci; \
+  elif [ -f pnpm-lock.yaml ]; then \
+    corepack enable pnpm; \
+    pnpm install --frozen-lockfile; \
+  elif [ -f yarn.lock ]; then \
+    corepack enable yarn; \
+    yarn install --frozen-lockfile; \
+  elif [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then \
+    npm ci; \
+  else \
+    npm install; \
+  fi
 
 # Development image
 FROM base AS dev
