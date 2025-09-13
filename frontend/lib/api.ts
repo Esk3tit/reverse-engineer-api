@@ -149,7 +149,7 @@ class APIClient {
             const friendly = mapFriendlyError(xhr.status, errorResponse);
             reject(new APIError(xhr.status, { ...errorResponse, error: friendly.message }));
           } catch (error) {
-            const friendly = mapFriendlyError(xhr.status, { error: xhr.statusText || 'Unknown error', status_code: xhr.status });
+            const friendly = mapFriendlyError(xhr.status, { error: xhr.statusText || 'Unknown error', status_code: xhr.status, details: undefined });
             reject(new APIError(xhr.status, {
               error: friendly.message,
               status_code: xhr.status,
