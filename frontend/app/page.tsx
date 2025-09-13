@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Upload, FileText, Terminal, Copy, Check, Loader2, AlertCircle, Globe, Clock, Database } from "lucide-react"
+import { Upload, FileText, Terminal, Copy, Check, Loader2, AlertCircle, Globe, Clock, Database, Play, Eye, EyeOff, ChevronDown, ChevronUp } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,9 +11,11 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { toast } from "sonner"
 
-import { apiClient, type CurlResponse, APIError } from "@/lib/api"
+import { apiClient, type CurlResponse, APIError, type APIExecutionResult } from "@/lib/api"
 
 export default function ReverseEngineeringTool() {
   const [file, setFile] = useState<File | null>(null)
@@ -25,6 +27,12 @@ export default function ReverseEngineeringTool() {
   const [dragActive, setDragActive] = useState(false)
   const [progress, setProgress] = useState(0)
   const [backendStatus, setBackendStatus] = useState<'checking' | 'online' | 'offline'>('checking')
+
+  // API execution state
+  const [isExecuting, setIsExecuting] = useState(false)
+  const [executionResult, setExecutionResult] = useState<APIExecutionResult | null>(null)
+  const [showSensitiveData, setShowSensitiveData] = useState(false)
+  const [responseCollapsed, setResponseCollapsed] = useState(false)
 
   // Check backend health on component mount
   useEffect(() => {
@@ -100,6 +108,7 @@ export default function ReverseEngineeringTool() {
     setError("")
     setProgress(0)
     setCurlResult(null)
+    setExecutionResult(null) // Clear previous execution result
 
     try {
       toast.loading("Processing HAR file...", { id: 'processing' })
@@ -144,12 +153,73 @@ export default function ReverseEngineeringTool() {
     }
   }
 
+  const executeAPI = async () => {
+    if (!curlResult) return
+
+    setIsExecuting(true)
+    setExecutionResult(null)
+    
+    try {
+      toast.loading("Executing API request...", { id: 'executing' })
+      
+      const result = await apiClient.executeAPI(curlResult.curl_command)
+      setExecutionResult(result)
+      
+      if (result.success) {
+        toast.success(`API executed successfully! Status: ${result.status_code}`, { id: 'executing' })
+      } else {
+        toast.error(`API execution failed: ${result.error}`, { id: 'executing' })
+      }
+      
+    } catch (error) {
+      console.error('API Execution Error:', error)
+      toast.error("Failed to execute API request", { id: 'executing' })
+      
+      setExecutionResult({
+        success: false,
+        status_code: 0,
+        headers: {},
+        body: '',
+        execution_time: 0,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      })
+    } finally {
+      setIsExecuting(false)
+    }
+  }
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes'
     const k = 1024
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const formatJSON = (str: string): string => {
+    try {
+      return JSON.stringify(JSON.parse(str), null, 2)
+    } catch {
+      return str
+    }
+  }
+
+  const getStatusColor = (statusCode: number): string => {
+    if (statusCode >= 200 && statusCode < 300) return 'text-green-400'
+    if (statusCode >= 300 && statusCode < 400) return 'text-yellow-400'
+    if (statusCode >= 400 && statusCode < 500) return 'text-orange-400'
+    if (statusCode >= 500) return 'text-red-400'
+    return 'text-gray-400'
+  }
+
+  const maskSensitiveValue = (key: string, value: string): string => {
+    const sensitiveKeys = ['authorization', 'cookie', 'x-api-key', 'token']
+    if (sensitiveKeys.some(sensitive => key.toLowerCase().includes(sensitive))) {
+      if (!showSensitiveData) {
+        return value.length > 8 ? `${value.slice(0, 4)}...${value.slice(-4)}` : '***MASKED***'
+      }
+    }
+    return value
   }
 
   return (
@@ -164,7 +234,7 @@ export default function ReverseEngineeringTool() {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-foreground">API Reverse Engineer</h1>
-                <p className="text-sm text-muted-foreground">Extract curl commands from HAR files</p>
+                <p className="text-sm text-muted-foreground">Extract and execute curl commands from HAR files</p>
               </div>
             </div>
             
@@ -186,7 +256,7 @@ export default function ReverseEngineeringTool() {
       <main className="container mx-auto px-4 py-8">
         <div className="mx-auto max-w-7xl space-y-8">
           {/* Process Steps */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className={`flex items-center gap-3 p-4 rounded-lg bg-card border ${
               file ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : 'border-border'
             }`}>
@@ -226,12 +296,25 @@ export default function ReverseEngineeringTool() {
                 <p className="text-sm text-muted-foreground">Copy and use the result</p>
               </div>
             </div>
+            <div className={`flex items-center gap-3 p-4 rounded-lg bg-card border ${
+              executionResult?.success ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : 'border-border'
+            }`}>
+              <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                executionResult?.success ? 'bg-green-500 text-white' : 'bg-muted text-muted-foreground'
+              } text-sm font-medium`}>
+                {executionResult?.success ? <Check className="h-4 w-4" /> : '4'}
+              </div>
+              <div>
+                <h3 className="font-medium text-foreground">Execute</h3>
+                <p className="text-sm text-muted-foreground">Test the API</p>
+              </div>
+            </div>
           </div>
 
           {/* Progress Bar */}
           {isProcessing && (
             <Card>
-              <CardContent className="pt-6">
+              <CardContent className="pt-1">
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Processing HAR file...</span>
@@ -243,7 +326,7 @@ export default function ReverseEngineeringTool() {
             </Card>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
             {/* Input Section */}
             <div className="space-y-6">
               {/* File Upload */}
@@ -366,7 +449,7 @@ export default function ReverseEngineeringTool() {
                 </Alert>
               )}
 
-              {/* Curl Command Output */}
+              {/* Curl Command Output with terminal style */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center justify-between">
@@ -375,19 +458,39 @@ export default function ReverseEngineeringTool() {
                       Generated Curl Command
                     </span>
                     {curlResult && (
-                      <Button variant="outline" size="sm" onClick={copyToClipboard} className="ml-2 bg-transparent">
-                        {copied ? (
-                          <>
-                            <Check className="mr-2 h-4 w-4" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="mr-2 h-4 w-4" />
-                            Copy
-                          </>
-                        )}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={copyToClipboard}>
+                          {copied ? (
+                            <>
+                              <Check className="mr-2 h-4 w-4" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="mr-2 h-4 w-4" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                        <Button 
+                          variant="default" 
+                          size="sm" 
+                          onClick={executeAPI}
+                          disabled={isExecuting}
+                        >
+                          {isExecuting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Running...
+                            </>
+                          ) : (
+                            <>
+                              <Play className="mr-2 h-4 w-4" />
+                              Execute
+                            </>
+                          )}
+                        </Button>
+                      </div>
                     )}
                   </CardTitle>
                   <CardDescription>Your extracted API request as a curl command</CardDescription>
@@ -395,9 +498,21 @@ export default function ReverseEngineeringTool() {
                 <CardContent>
                   {curlResult ? (
                     <div className="relative">
-                      <pre className="bg-muted p-4 rounded-lg text-sm font-mono overflow-x-auto text-foreground whitespace-pre-wrap">
-                        {curlResult.curl_command}
-                      </pre>
+                      {/* Terminal-style background with syntax highlighting */}
+                      <div className="bg-black rounded-lg p-4 font-mono text-sm overflow-x-auto border">
+                        <div className="flex items-center gap-2 mb-3 text-gray-400">
+                          <div className="flex gap-1">
+                            <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                            <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                          </div>
+                          <span className="text-xs">Terminal</span>
+                        </div>
+                        <div className="text-green-400 mb-1">$ <span className="text-gray-300">Generated curl command:</span></div>
+                        <pre className="text-yellow-300 leading-relaxed whitespace-pre-wrap">
+                          {curlResult.curl_command}
+                        </pre>
+                      </div>
                     </div>
                   ) : (
                     <div className="bg-muted p-8 rounded-lg text-center">
@@ -409,6 +524,94 @@ export default function ReverseEngineeringTool() {
                   )}
                 </CardContent>
               </Card>
+
+              {/* API Execution Results */}
+              {executionResult && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span className="flex items-center gap-2">
+                        <Play className="h-5 w-5" />
+                        API Execution Result
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowSensitiveData(!showSensitiveData)}
+                        >
+                          {showSensitiveData ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          {showSensitiveData ? 'Hide' : 'Show'} Sensitive
+                        </Button>
+                      </div>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Tabs defaultValue="overview" className="w-full">
+                      <TabsList className="grid w-full grid-cols-3">
+                        <TabsTrigger value="overview">Overview</TabsTrigger>
+                        <TabsTrigger value="headers">Headers</TabsTrigger>
+                        <TabsTrigger value="response">Response</TabsTrigger>
+                      </TabsList>
+                      
+                      <TabsContent value="overview" className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Status Code</Label>
+                            <div className={`text-2xl font-bold ${getStatusColor(executionResult.status_code)}`}>
+                              {executionResult.status_code}
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Execution Time</Label>
+                            <div className="text-2xl font-bold text-blue-400">
+                              {executionResult.execution_time}ms
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {executionResult.error && (
+                          <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>{executionResult.error}</AlertDescription>
+                          </Alert>
+                        )}
+                      </TabsContent>
+                      
+                      <TabsContent value="headers" className="space-y-2">
+                        <div className="bg-black rounded-lg p-4 font-mono text-sm max-h-60 overflow-y-auto">
+                          {Object.entries(executionResult.headers).map(([key, value]) => (
+                            <div key={key} className="text-gray-300">
+                              <span className="text-cyan-400">{key}:</span>{' '}
+                              <span className="text-yellow-300">
+                                {maskSensitiveValue(key, value)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </TabsContent>
+                      
+                      <TabsContent value="response">
+                        <Collapsible open={!responseCollapsed} onOpenChange={setResponseCollapsed}>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between">
+                              Response Body
+                              {responseCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="mt-4">
+                            <div className="bg-black rounded-lg p-4 font-mono text-sm max-h-96 overflow-y-auto">
+                              <pre className="text-green-300 whitespace-pre-wrap">
+                                {formatJSON(executionResult.body)}
+                              </pre>
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </TabsContent>
+                    </Tabs>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Request Details */}
               {curlResult && (

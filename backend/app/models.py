@@ -57,3 +57,17 @@ class LLMAnalysisResponse(BaseModel):
         description="Alternative request indices",
         default_factory=list
     )
+
+class ExecuteCurlRequest(BaseModel):
+    """Request model for executing curl commands"""
+    curl_command: str = Field(description="The curl command to execute")
+
+
+class ExecuteCurlResponse(BaseModel):
+    """Response model for curl command execution"""
+    success: bool = Field(description="Whether the execution was successful")
+    status_code: int = Field(description="HTTP status code of the response")
+    headers: Dict[str, str] = Field(description="Response headers", default_factory=dict)
+    body: str = Field(description="Response body content")
+    execution_time: int = Field(description="Execution time in milliseconds")
+    error: Optional[str] = Field(description="Error message if execution failed", default=None)
